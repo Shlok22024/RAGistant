@@ -1,6 +1,6 @@
 # ResearchGPT: RAG Based Research Paper Assistant
 
-ResearchGPT is a Streamlit app that lets users upload research papers, ask questions, and receive document-grounded answers with page-level source references. It demonstrates a complete Retrieval-Augmented Generation workflow: PDF loading, page extraction, chunking, embeddings, vector search, answer generation, and source inspection.
+ResearchGPT is a Streamlit app by **Shlok Goud** that lets users upload research papers, ask questions, and receive document-grounded answers with page-level source references. It demonstrates a complete Retrieval-Augmented Generation workflow: PDF loading, page extraction, chunking, embeddings, vector search, answer generation, and source inspection.
 
 ## Demo Screenshots
 
@@ -40,6 +40,7 @@ flowchart LR
 - Split papers into configurable overlapping chunks.
 - Store embeddings in ChromaDB.
 - Use OpenAI or local Hugging Face embeddings.
+- Generate answers with Google Gemini, Groq, OpenAI, or retrieval-only mode.
 - Ask natural-language questions about the paper.
 - Return an answer with source references.
 - Show retrieved chunks in an expandable evidence panel.
@@ -51,6 +52,7 @@ flowchart LR
 - LlamaIndex
 - ChromaDB
 - OpenAI embeddings or Hugging Face embeddings
+- Google Gemini, Groq, OpenAI, or retrieval-only answer mode
 - PyMuPDF
 
 ## Setup
@@ -68,13 +70,30 @@ Add your OpenAI API key to `.env` if you want generated answers:
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
+For a low/no-cost setup, use local Hugging Face embeddings and add either a Gemini or Groq key instead:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
+```
+
 Then run:
 
 ```bash
 streamlit run app.py
 ```
 
-The app can also run in retrieval-only mode with local Hugging Face embeddings. Select **Local Hugging Face** in the sidebar. The first run may download the embedding model.
+The app can also run in retrieval-only mode with local Hugging Face embeddings. Select **Local Hugging Face** for embeddings and **Retrieval only** for answers in the sidebar. The first run may download the embedding model.
+
+## Low/No-Cost API Recommendation
+
+The recommended demo configuration is:
+
+- **Embeddings:** Local Hugging Face
+- **Answer provider:** Google Gemini or Groq
+- **Fallback:** Retrieval only
+
+This avoids OpenAI quota issues for embeddings and keeps the generated-answer provider replaceable. Gemini is a strong free-tier candidate through Google AI Studio, while Groq is a strong low-cost OpenAI-compatible option for fast hosted inference.
 
 ## Sample Questions And Answers
 
@@ -117,6 +136,8 @@ The app can also run in retrieval-only mode with local Hugging Face embeddings. 
 ├── .env.example
 ├── .streamlit/
 │   └── config.toml
+├── pages/
+│   └── About.py
 └── docs/
     └── screenshots/
         ├── 01-upload-and-index.svg

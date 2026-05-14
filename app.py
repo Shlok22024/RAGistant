@@ -11,11 +11,9 @@ from dotenv import load_dotenv
 from llama_index.core import Settings, StorageContext, VectorStoreIndex
 from llama_index.core.llms.mock import MockLLM
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.prompts import PromptTemplate
 from llama_index.core.schema import Document
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 
@@ -24,32 +22,101 @@ load_dotenv()
 APP_TITLE = "ResearchGPT"
 APP_SUBTITLE = "RAG Based Research Paper Assistant"
 CHROMA_DIR = Path(".chroma")
+
 DEFAULT_OPENAI_EMBED_MODEL = "text-embedding-3-small"
 DEFAULT_OPENAI_CHAT_MODEL = "gpt-4.1-mini"
 DEFAULT_LOCAL_EMBED_MODEL = "BAAI/bge-small-en-v1.5"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
 
-
-CITATION_PROMPT = PromptTemplate(
-    "You are ResearchGPT, a careful research-paper assistant.\n"
-    "Answer only from the provided context. Cite the evidence inline using "
-    "bracketed source labels such as [1] or [2]. If the context does not answer "
-    "the question, say that the uploaded paper does not provide enough evidence.\n\n"
-    "Context:\n{context_str}\n\n"
-    "Question: {query_str}\n\n"
-    "Answer with concise reasoning and source citations."
-)
+GENERATION_PROVIDERS = ["Google Gemini", "Groq", "OpenAI", "Retrieval only"]
+EMBEDDING_PROVIDERS = ["Local Hugging Face", "OpenAI"]
 
 
 @dataclass(frozen=True)
 class RagSettings:
     embedding_provider: str
+    answer_provider: str
     openai_api_key: str
+    gemini_api_key: str
+    groq_api_key: str
     openai_embed_model: str
     openai_chat_model: str
+    gemini_model: str
+    groq_model: str
     local_embed_model: str
     chunk_size: int
     chunk_overlap: int
     top_k: int
+
+
+def inject_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 2.4rem;
+            padding-bottom: 4rem;
+            max-width: 1180px;
+        }
+        .rg-hero {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 1.35rem 1.45rem;
+            margin-bottom: 1.2rem;
+        }
+        .rg-eyebrow {
+            color: #2563eb;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.35rem;
+        }
+        .rg-hero h1 {
+            color: #0f172a;
+            font-size: 2.35rem;
+            line-height: 1.1;
+            margin: 0 0 0.45rem 0;
+        }
+        .rg-hero p {
+            color: #475569;
+            font-size: 1rem;
+            margin: 0;
+            max-width: 780px;
+        }
+        .rg-step {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 1rem;
+            min-height: 116px;
+        }
+        .rg-step strong {
+            color: #0f172a;
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+        .rg-step span {
+            color: #64748b;
+            font-size: 0.94rem;
+        }
+        .rg-source {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0.75rem 0.85rem;
+            margin-bottom: 0.55rem;
+            background: #ffffff;
+        }
+        .rg-muted {
+            color: #64748b;
+            font-size: 0.92rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def slugify(value: str) -> str:
@@ -108,17 +175,10 @@ def get_embedding_model(
 ):
     if embedding_provider == "OpenAI":
         if not openai_api_key:
-            raise ValueError("Add an OpenAI API key or switch to local Hugging Face embeddings.")
+            raise ValueError("Add an OpenAI API key or switch embeddings to Local Hugging Face.")
         return OpenAIEmbedding(model=openai_embed_model, api_key=openai_api_key)
 
     return HuggingFaceEmbedding(model_name=local_embed_model)
-
-
-@st.cache_resource(show_spinner=False)
-def get_llm(openai_api_key: str, openai_chat_model: str):
-    if openai_api_key:
-        return OpenAI(model=openai_chat_model, api_key=openai_api_key, temperature=0.1)
-    return MockLLM(max_tokens=512)
 
 
 @st.cache_resource(show_spinner=False)
@@ -128,7 +188,6 @@ def build_index(
     embedding_provider: str,
     openai_api_key: str,
     openai_embed_model: str,
-    openai_chat_model: str,
     local_embed_model: str,
     chunk_size: int,
     chunk_overlap: int,
@@ -146,7 +205,7 @@ def build_index(
         openai_embed_model,
         local_embed_model,
     )
-    Settings.llm = get_llm(openai_api_key, openai_chat_model)
+    Settings.llm = MockLLM(max_tokens=512)
     Settings.node_parser = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     chroma_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
@@ -188,25 +247,141 @@ def retrieved_rows(source_nodes) -> list[dict[str, str]]:
     return rows
 
 
+def build_context(rows: list[dict[str, str]]) -> str:
+    context_blocks = []
+    for row in rows:
+        context_blocks.append(
+            f"[{row['number']}] Source: {row['source']}\n"
+            f"Similarity: {row['score']}\n"
+            f"Text:\n{row['text']}"
+        )
+    return "\n\n---\n\n".join(context_blocks)
+
+
+def answer_prompt(query: str, rows: list[dict[str, str]]) -> str:
+    return (
+        "You are ResearchGPT, a careful research-paper assistant.\n"
+        "Answer only from the provided context. Cite evidence inline using the bracketed "
+        "source numbers already shown in the context, such as [1] or [2]. If the context "
+        "does not contain enough evidence, say that the uploaded paper does not provide "
+        "enough information.\n\n"
+        f"Context:\n{build_context(rows)}\n\n"
+        f"Question: {query}\n\n"
+        "Answer with concise reasoning and citations."
+    )
+
+
 def retrieval_only_answer(rows: list[dict[str, str]]) -> str:
     lines = [
-        "No OpenAI API key is configured for answer generation, so ResearchGPT is showing the most relevant evidence instead."
+        "ResearchGPT is in retrieval-only mode, so it is showing the most relevant evidence instead of generating a summary."
     ]
     for row in rows:
-        excerpt = row["text"].replace("\n", " ")[:550]
+        excerpt = row["text"].replace("\n", " ")[:600]
         lines.append(f"[{row['number']}] {row['source']}: {excerpt}")
     return "\n\n".join(lines)
+
+
+def generate_with_gemini(prompt: str, api_key: str, model: str) -> str:
+    if not api_key:
+        raise ValueError("Add a Gemini API key in the sidebar or choose Retrieval only.")
+
+    from google import genai
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(model=model, contents=prompt)
+    return response.text or "Gemini returned an empty response."
+
+
+def generate_with_groq(prompt: str, api_key: str, model: str) -> str:
+    if not api_key:
+        raise ValueError("Add a Groq API key in the sidebar or choose Retrieval only.")
+
+    from groq import Groq
+
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        temperature=0.1,
+        messages=[
+            {"role": "system", "content": "You answer research questions using only provided context."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    return response.choices[0].message.content or "Groq returned an empty response."
+
+
+def generate_with_openai(prompt: str, api_key: str, model: str) -> str:
+    if not api_key:
+        raise ValueError("Add an OpenAI API key in the sidebar or choose another answer provider.")
+
+    from openai import OpenAI
+
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        temperature=0.1,
+        messages=[
+            {"role": "system", "content": "You answer research questions using only provided context."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    return response.choices[0].message.content or "OpenAI returned an empty response."
+
+
+def generate_answer(query: str, rows: list[dict[str, str]], settings: RagSettings) -> str:
+    if settings.answer_provider == "Retrieval only":
+        return retrieval_only_answer(rows)
+
+    prompt = answer_prompt(query, rows)
+    if settings.answer_provider == "Google Gemini":
+        return generate_with_gemini(prompt, settings.gemini_api_key, settings.gemini_model)
+    if settings.answer_provider == "Groq":
+        return generate_with_groq(prompt, settings.groq_api_key, settings.groq_model)
+    return generate_with_openai(prompt, settings.openai_api_key, settings.openai_chat_model)
 
 
 def render_sidebar() -> RagSettings:
     st.sidebar.header("Settings")
 
+    embedding_provider = st.sidebar.radio(
+        "Embedding provider",
+        EMBEDDING_PROVIDERS,
+        help="Local Hugging Face embeddings avoid paid embedding APIs.",
+    )
+    answer_provider = st.sidebar.radio(
+        "Answer provider",
+        GENERATION_PROVIDERS,
+        help="Gemini and Groq are good low/no-cost alternatives to OpenAI for this project.",
+    )
+
+    st.sidebar.divider()
+    st.sidebar.subheader("API keys")
+    gemini_api_key = st.sidebar.text_input(
+        "Gemini API key",
+        value=os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", "")),
+        type="password",
+    )
+    groq_api_key = st.sidebar.text_input(
+        "Groq API key",
+        value=os.getenv("GROQ_API_KEY", ""),
+        type="password",
+    )
     openai_api_key = st.sidebar.text_input(
         "OpenAI API key",
         value=os.getenv("OPENAI_API_KEY", ""),
         type="password",
     )
-    embedding_provider = st.sidebar.radio("Embedding provider", ["OpenAI", "Local Hugging Face"])
+
+    st.sidebar.divider()
+    st.sidebar.subheader("Models")
+    gemini_model = st.sidebar.text_input(
+        "Gemini model",
+        value=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL),
+    )
+    groq_model = st.sidebar.text_input(
+        "Groq model",
+        value=os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL),
+    )
     openai_embed_model = st.sidebar.text_input(
         "OpenAI embedding model",
         value=os.getenv("OPENAI_EMBED_MODEL", DEFAULT_OPENAI_EMBED_MODEL),
@@ -219,15 +394,23 @@ def render_sidebar() -> RagSettings:
         "Local embedding model",
         value=os.getenv("LOCAL_EMBED_MODEL", DEFAULT_LOCAL_EMBED_MODEL),
     )
+
+    st.sidebar.divider()
+    st.sidebar.subheader("Retrieval")
     chunk_size = st.sidebar.slider("Chunk size", min_value=256, max_value=1536, value=768, step=128)
     chunk_overlap = st.sidebar.slider("Chunk overlap", min_value=0, max_value=300, value=120, step=20)
     top_k = st.sidebar.slider("Retrieved chunks", min_value=2, max_value=8, value=4)
 
     return RagSettings(
         embedding_provider=embedding_provider,
+        answer_provider=answer_provider,
         openai_api_key=openai_api_key,
+        gemini_api_key=gemini_api_key,
+        groq_api_key=groq_api_key,
         openai_embed_model=openai_embed_model,
         openai_chat_model=openai_chat_model,
+        gemini_model=gemini_model,
+        groq_model=groq_model,
         local_embed_model=local_embed_model,
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -235,21 +418,56 @@ def render_sidebar() -> RagSettings:
     )
 
 
-def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, layout="wide")
-    st.title(APP_TITLE)
-    st.caption(APP_SUBTITLE)
-
-    settings = render_sidebar()
-
-    uploaded_files = st.file_uploader(
-        "Upload research PDFs",
-        type=["pdf"],
-        accept_multiple_files=True,
+def render_intro(settings: RagSettings) -> None:
+    st.markdown(
+        f"""
+        <div class="rg-hero">
+            <div class="rg-eyebrow">Research paper Q&A with citations</div>
+            <h1>{APP_TITLE}</h1>
+            <p>{APP_SUBTITLE}. Upload PDFs, retrieve the most relevant chunks, and generate answers with page-level source references.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
+    cols = st.columns(3)
+    with cols[0]:
+        st.markdown(
+            '<div class="rg-step"><strong>1. Upload</strong><span>Drop one or more text-based PDFs. Each page keeps its source metadata.</span></div>',
+            unsafe_allow_html=True,
+        )
+    with cols[1]:
+        st.markdown(
+            '<div class="rg-step"><strong>2. Retrieve</strong><span>Local vectors in ChromaDB find the chunks most related to your question.</span></div>',
+            unsafe_allow_html=True,
+        )
+    with cols[2]:
+        st.markdown(
+            f'<div class="rg-step"><strong>3. Answer</strong><span>Current answer provider: {settings.answer_provider}. Sources stay visible for checking.</span></div>',
+            unsafe_allow_html=True,
+        )
+
+
+def main() -> None:
+    st.set_page_config(page_title=APP_TITLE, layout="wide")
+    inject_styles()
+
+    settings = render_sidebar()
+    render_intro(settings)
+
+    st.markdown("### Document Workspace")
+    left_col, right_col = st.columns([1.1, 0.9], gap="large")
+
+    with left_col:
+        uploaded_files = st.file_uploader(
+            "Upload research PDFs",
+            type=["pdf"],
+            accept_multiple_files=True,
+        )
+
     if not uploaded_files:
-        st.info("Upload one or more PDFs to build a searchable RAG index.")
+        with right_col:
+            st.info("Upload one or more PDFs to build a searchable RAG index.")
         return
 
     files = tuple((uploaded_file.name, uploaded_file.getvalue()) for uploaded_file in uploaded_files)
@@ -263,7 +481,6 @@ def main() -> None:
                 settings.embedding_provider,
                 settings.openai_api_key,
                 settings.openai_embed_model,
-                settings.openai_chat_model,
                 settings.local_embed_model,
                 settings.chunk_size,
                 settings.chunk_overlap,
@@ -272,36 +489,50 @@ def main() -> None:
             st.error(str(exc))
             return
 
-    st.success(f"Indexed {len(files)} PDF file(s) across {page_count} text-bearing page(s).")
+    with right_col:
+        st.metric("PDFs indexed", len(files))
+        st.metric("Text-bearing pages", page_count)
+        st.metric("Retrieved chunks", settings.top_k)
+        st.caption(f"Embeddings: {settings.embedding_provider} | Answers: {settings.answer_provider}")
 
-    query = st.text_input(
-        "Ask a question about the uploaded paper",
+    st.markdown("### Ask The Paper")
+    query = st.text_area(
+        "Question",
         placeholder="What is the main contribution, and what evidence supports it?",
+        height=92,
     )
-    if not query:
+
+    ask_clicked = st.button("Generate answer", type="primary", use_container_width=False)
+    if not ask_clicked or not query.strip():
+        st.caption("Ask a focused question after the index is ready.")
         return
 
     with st.spinner("Retrieving relevant chunks and preparing the answer..."):
-        if settings.openai_api_key:
-            query_engine = index.as_query_engine(
-                similarity_top_k=settings.top_k,
-                response_mode="compact",
-                text_qa_template=CITATION_PROMPT,
-            )
-            response = query_engine.query(query)
-            answer = str(response)
-            rows = retrieved_rows(response.source_nodes)
-        else:
+        try:
             retriever = index.as_retriever(similarity_top_k=settings.top_k)
             rows = retrieved_rows(retriever.retrieve(query))
-            answer = retrieval_only_answer(rows)
+            answer = generate_answer(query, rows, settings)
+        except Exception as exc:
+            st.error(str(exc))
+            return
 
-    st.subheader("Answer")
-    st.write(answer)
+    answer_col, source_col = st.columns([1.35, 0.85], gap="large")
+    with answer_col:
+        st.markdown("### Answer")
+        st.write(answer)
 
-    st.subheader("Sources")
-    for row in rows:
-        st.markdown(f"**[{row['number']}] {row['source']}** - similarity `{row['score']}`")
+    with source_col:
+        st.markdown("### Sources")
+        for row in rows:
+            st.markdown(
+                f"""
+                <div class="rg-source">
+                    <strong>[{row['number']}] {row['source']}</strong><br>
+                    <span class="rg-muted">Similarity {row['score']}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     with st.expander("Show retrieved chunks"):
         for row in rows:
