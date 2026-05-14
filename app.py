@@ -72,7 +72,8 @@ def make_collection_name(files: tuple[tuple[str, bytes], ...], settings: RagSett
             f"{settings.local_embed_model}|{settings.chunk_size}|{settings.chunk_overlap}"
         ).encode("utf-8")
     )
-    return f"researchgpt-{slugify('-'.join(names))}-{digest.hexdigest()[:10]}"
+    readable_name = slugify("-".join(names))[:36]
+    return f"researchgpt-{readable_name}-{digest.hexdigest()[:10]}"
 
 
 def read_pdf_pages(file_bytes: bytes, file_name: str) -> list[Document]:
