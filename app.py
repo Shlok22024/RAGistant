@@ -56,34 +56,34 @@ def inject_styles() -> None:
         <style>
         .stApp {
             background:
-                linear-gradient(180deg, #f6f8f2 0%, #f8fafc 42%, #eef4f1 100%);
-            color: #10201b;
+                linear-gradient(180deg, #f5f7fa 0%, #f8fbfd 46%, #edf6f9 100%);
+            color: #1f2937;
         }
         [data-testid="stSidebar"] {
-            background: #edf3ef;
-            border-right: 1px solid #d6e0d8;
+            background: #eef4f8;
+            border-right: 1px solid #d7e3ea;
         }
         [data-testid="stSidebar"] h1,
         [data-testid="stSidebar"] h2,
         [data-testid="stSidebar"] h3 {
-            color: #16352b;
+            color: #1f2937;
         }
         [data-testid="stMetric"] {
-            border: 1px solid #dbe4dc;
+            border: 1px solid #d7e3ea;
             border-radius: 8px;
             background: #ffffff;
             padding: 0.75rem 0.85rem;
         }
         .stButton > button {
             border-radius: 8px;
-            border: 1px solid #245d51;
-            background: #245d51;
+            border: 1px solid #365486;
+            background: #365486;
             color: #ffffff;
             font-weight: 700;
         }
         .stButton > button:hover {
-            border: 1px solid #1d4d43;
-            background: #1d4d43;
+            border: 1px solid #243b63;
+            background: #243b63;
             color: #ffffff;
         }
         .block-container {
@@ -92,17 +92,17 @@ def inject_styles() -> None:
             max-width: 1180px;
         }
         .rg-hero {
-            border: 1px solid #c9d8cf;
+            border: 1px solid #c8d9e5;
             background:
-                linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(237, 245, 240, 0.94)),
-                repeating-linear-gradient(90deg, transparent 0, transparent 31px, rgba(36, 93, 81, 0.06) 32px);
+                linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(238, 247, 251, 0.94)),
+                repeating-linear-gradient(90deg, transparent 0, transparent 31px, rgba(54, 84, 134, 0.055) 32px);
             border-radius: 10px;
             padding: 1.55rem 1.65rem;
             margin-bottom: 1.2rem;
-            box-shadow: 0 10px 26px rgba(15, 46, 36, 0.06);
+            box-shadow: 0 10px 26px rgba(31, 41, 55, 0.06);
         }
         .rg-eyebrow {
-            color: #245d51;
+            color: #365486;
             font-size: 0.82rem;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -110,51 +110,85 @@ def inject_styles() -> None:
             margin-bottom: 0.35rem;
         }
         .rg-hero h1 {
-            color: #10201b;
+            color: #1f2937;
             font-size: 2.35rem;
             line-height: 1.1;
             margin: 0 0 0.45rem 0;
         }
         .rg-hero p {
-            color: #4c6259;
+            color: #526173;
             font-size: 1rem;
             margin: 0;
             max-width: 780px;
         }
+        .rg-status-strip {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin: 0.85rem 0 1.2rem 0;
+        }
+        .rg-status-item {
+            border: 1px solid #d7e3ea;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.65rem 0.75rem;
+            min-height: 72px;
+        }
+        .rg-status-label {
+            color: #667085;
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .rg-status-value {
+            color: #1f2937;
+            display: block;
+            font-size: 0.94rem;
+            font-weight: 750;
+            line-height: 1.25;
+        }
         .rg-step {
-            border: 1px solid #d6e0d8;
+            border: 1px solid #d7e3ea;
             border-radius: 8px;
             background: #ffffff;
             padding: 1rem;
             min-height: 116px;
-            box-shadow: 0 8px 18px rgba(15, 46, 36, 0.04);
+            box-shadow: 0 8px 18px rgba(31, 41, 55, 0.04);
         }
         .rg-step strong {
-            color: #16352b;
+            color: #1f2937;
             display: block;
             margin-bottom: 0.35rem;
         }
         .rg-step span {
-            color: #5f7169;
+            color: #667085;
             font-size: 0.94rem;
         }
         .rg-panel {
-            border: 1px solid #d6e0d8;
+            border: 1px solid #d7e3ea;
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.86);
             padding: 1rem;
         }
         .rg-source {
-            border: 1px solid #d6e0d8;
+            border: 1px solid #d7e3ea;
             border-radius: 8px;
             padding: 0.75rem 0.85rem;
             margin-bottom: 0.55rem;
             background: #ffffff;
-            border-left: 4px solid #9bb7a5;
+            border-left: 4px solid #7fc7d9;
         }
         .rg-muted {
-            color: #66766f;
+            color: #667085;
             font-size: 0.92rem;
+        }
+        @media (max-width: 900px) {
+            .rg-status-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
         </style>
         """,
@@ -478,6 +512,52 @@ def render_intro(settings: RagSettings) -> None:
         )
 
 
+def render_status_strip(
+    settings: RagSettings,
+    file_count: int | None = None,
+    page_count: int | None = None,
+    status: str = "Waiting for PDF",
+) -> None:
+    files = str(file_count) if file_count is not None else "-"
+    pages = str(page_count) if page_count is not None else "-"
+    retrieval = f"{settings.chunk_size} / {settings.chunk_overlap} / top {settings.top_k}"
+    st.markdown(
+        f"""
+        <div class="rg-status-strip">
+            <div class="rg-status-item"><span class="rg-status-label">Index</span><span class="rg-status-value">{status}</span></div>
+            <div class="rg-status-item"><span class="rg-status-label">Files</span><span class="rg-status-value">{files}</span></div>
+            <div class="rg-status-item"><span class="rg-status-label">Pages</span><span class="rg-status-value">{pages}</span></div>
+            <div class="rg-status-item"><span class="rg-status-label">Providers</span><span class="rg-status-value">{settings.embedding_provider} + {settings.answer_provider}</span></div>
+            <div class="rg-status-item"><span class="rg-status-label">Retrieval</span><span class="rg-status-value">{retrieval}</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_sample_questions() -> None:
+    sample_questions = [
+        "What did the authors find in living daddy-longlegs?",
+        "How do vestigial eyes affect fossil placement?",
+        "What evidence supports the main finding?",
+        "What are the limitations or future directions?",
+    ]
+    st.caption("Sample questions")
+    columns = st.columns(4)
+    for index, sample in enumerate(sample_questions):
+        columns[index].button(
+            sample,
+            key=f"sample-question-{index}",
+            on_click=set_sample_question,
+            args=(sample,),
+            use_container_width=True,
+        )
+
+
+def set_sample_question(question: str) -> None:
+    st.session_state["question"] = question
+
+
 def main() -> None:
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     inject_styles()
@@ -498,6 +578,7 @@ def main() -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
     if not uploaded_files:
+        render_status_strip(settings)
         with right_col:
             st.info("Upload one or more PDFs to build a searchable RAG index.")
         return
@@ -521,6 +602,8 @@ def main() -> None:
             st.error(str(exc))
             return
 
+    render_status_strip(settings, len(files), page_count, "Ready")
+
     with right_col:
         st.metric("PDFs indexed", len(files))
         st.metric("Text-bearing pages", page_count)
@@ -528,11 +611,15 @@ def main() -> None:
         st.caption(f"Embeddings: {settings.embedding_provider} | Answers: {settings.answer_provider}")
 
     st.markdown("### Ask The Paper")
+    if "question" not in st.session_state:
+        st.session_state["question"] = ""
     query = st.text_area(
         "Question",
         placeholder="What is the main contribution, and what evidence supports it?",
         height=92,
+        key="question",
     )
+    render_sample_questions()
 
     ask_clicked = st.button("Generate answer", type="primary", use_container_width=False)
     if not ask_clicked or not query.strip():
