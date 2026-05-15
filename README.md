@@ -1,49 +1,45 @@
-# ResearchGPT: RAG Based Research Paper Assistant
+# RAGistant: RAG Based Research Paper Assistant
 
-ResearchGPT is a Streamlit app by **Shlok Goud** that lets users upload research papers, ask questions, and receive document-grounded answers with page-level source references. It demonstrates a complete Retrieval-Augmented Generation workflow: PDF loading, page extraction, chunking, embeddings, vector search, answer generation, and source inspection.
+RAGistant is a Streamlit app by **Shlok Goud** for asking questions over uploaded research papers. It uses Retrieval-Augmented Generation to extract PDF text, split it into searchable chunks, retrieve the most relevant evidence, and answer with page-level source references.
 
-## Demo Screenshots
-
-![ResearchGPT upload and indexing screen](docs/screenshots/01-upload-and-index.svg)
-
-![ResearchGPT answer with citations screen](docs/screenshots/02-answer-with-citations.svg)
+The app is designed as a practical research assistant and portfolio project: lightweight enough to run locally, but complete enough to show document loading, chunking, embeddings, vector search, answer generation, citation handling, and evidence inspection.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A["User uploads PDF"] --> B["PyMuPDF extracts page text"]
-    B --> C["LlamaIndex splits text into chunks"]
-    C --> D["Embedding model creates vectors"]
-    D --> E["ChromaDB stores searchable chunks"]
-    F["User question"] --> G["Vector similarity search"]
+    A["Upload PDF"] --> B["PyMuPDF page extraction"]
+    B --> C["LlamaIndex chunking"]
+    C --> D["Embedding model"]
+    D --> E["ChromaDB vector index"]
+    F["User question"] --> G["Similarity retrieval"]
     E --> G
-    G --> H["Top-k chunks + page metadata"]
-    H --> I["LLM generates grounded answer"]
-    I --> J["Answer with citations and retrieved chunks"]
+    G --> H["Top-k source chunks"]
+    H --> I["Gemini, Groq, OpenAI, or retrieval-only answer"]
+    I --> J["Cited answer + retrieved evidence"]
 ```
 
 ## How RAG Works In This App
 
-1. **Load**: Uploaded PDFs are read with PyMuPDF, and each text-bearing page becomes a LlamaIndex `Document` with file and page metadata.
-2. **Chunk**: LlamaIndex `SentenceSplitter` breaks page text into overlapping chunks so retrieval has focused evidence.
-3. **Embed**: The app creates vectors with OpenAI embeddings or a local Hugging Face sentence-transformer model.
-4. **Index**: ChromaDB stores the chunk vectors in a persistent local collection under `.chroma/`.
-5. **Retrieve**: A user question is embedded and matched against the vector store using top-k similarity search.
-6. **Generate**: If an OpenAI API key is configured, the selected chunks are passed to an LLM with instructions to cite the retrieved evidence.
-7. **Inspect**: The app shows source labels and an expandable view of the retrieved chunks so users can audit the answer.
+1. **Load**: Uploaded PDFs are read with PyMuPDF. Each text-bearing page keeps file and page metadata.
+2. **Chunk**: LlamaIndex splits text into overlapping chunks so retrieval can find focused evidence.
+3. **Embed**: The app creates vectors with local Hugging Face embeddings or OpenAI embeddings.
+4. **Index**: ChromaDB stores the chunk vectors in a local `.chroma/` database.
+5. **Retrieve**: A user question is matched against the vector store using top-k similarity search.
+6. **Generate**: Gemini, Groq, or OpenAI can generate a source-grounded answer from the retrieved chunks.
+7. **Inspect**: The app shows citations, similarity scores, and an expandable retrieved-chunk evidence panel.
 
-## Core Features
+## Features
 
 - Upload one or more research PDFs.
-- Extract page text with source metadata.
-- Split papers into configurable overlapping chunks.
+- Extract page-level text and source metadata.
+- Configure chunk size, chunk overlap, and number of retrieved chunks.
 - Store embeddings in ChromaDB.
-- Use OpenAI or local Hugging Face embeddings.
+- Use local Hugging Face embeddings to avoid embedding API costs.
 - Generate answers with Google Gemini, Groq, OpenAI, or retrieval-only mode.
-- Ask natural-language questions about the paper.
-- Return an answer with source references.
-- Show retrieved chunks in an expandable evidence panel.
+- Keep API keys out of the UI; keys are loaded from `.env`.
+- Use sample question chips for faster paper exploration.
+- View an About page with the RAG pipeline and developer information.
 
 ## Tech Stack
 
@@ -51,9 +47,10 @@ flowchart LR
 - Streamlit
 - LlamaIndex
 - ChromaDB
-- OpenAI embeddings or Hugging Face embeddings
-- Google Gemini, Groq, OpenAI, or retrieval-only answer mode
 - PyMuPDF
+- Hugging Face sentence-transformer embeddings
+- OpenAI embeddings, optional
+- Google Gemini, Groq, OpenAI, or retrieval-only answer mode
 
 ## Setup
 
@@ -64,68 +61,62 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Add API keys to `.env` if you want generated answers. Keys are loaded from the local environment and are not editable or displayed in the Streamlit UI.
+Add keys to `.env` only for the providers you want to use. API keys are loaded from your local environment and are not editable or displayed in the Streamlit UI.
 
-Add your OpenAI API key only if you want OpenAI generation or OpenAI embeddings:
-
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-For a low/no-cost setup, use local Hugging Face embeddings and add either a Gemini or Groq key instead:
+For the recommended low/no-cost setup:
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-Then run:
+Use OpenAI only if you want OpenAI generation or OpenAI embeddings:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Run the app:
 
 ```bash
 streamlit run app.py
 ```
 
-The app can also run in retrieval-only mode with local Hugging Face embeddings. Select **Local Hugging Face** for embeddings and **Retrieval only** for answers in the sidebar. The first run may download the embedding model.
+## Recommended Configuration
 
-## Low/No-Cost API Recommendation
+For most local demos:
 
-The recommended demo configuration is:
-
-- **Embeddings:** Local Hugging Face
+- **Embedding provider:** Local Hugging Face
 - **Answer provider:** Google Gemini or Groq
 - **Fallback:** Retrieval only
+- **Chunk size:** 768-1024
+- **Chunk overlap:** 120-200
+- **Retrieved chunks:** 6-8 for broad questions, 4-6 for specific questions
 
-This avoids OpenAI quota issues for embeddings and keeps the generated-answer provider replaceable. Gemini is a strong free-tier candidate through Google AI Studio, while Groq is a strong low-cost OpenAI-compatible option for fast hosted inference.
+This avoids OpenAI quota issues for embeddings and keeps answer generation provider-agnostic.
 
-## Sample Questions And Answers
+## Sample Questions
 
-**Question:** What is the main contribution of this paper?
-
-**Answer:** The answer should summarize the contribution using only retrieved paper passages and cite the relevant pages, for example `[1]` and `[2]`.
-
-**Question:** What dataset or evaluation method did the authors use?
-
-**Answer:** ResearchGPT should identify the dataset, benchmark, metric, or study design mentioned in the paper and cite the retrieved source pages.
-
-**Question:** What limitations do the authors mention?
-
-**Answer:** The app should extract limitations from the discussion, conclusion, or limitations sections and show the exact chunks used as evidence.
+- What did the authors find in living daddy-longlegs?
+- How do vestigial eyes affect fossil placement?
+- What evidence supports the main finding?
+- What are the limitations or future directions?
+- What dataset, method, or experiment did the authors use?
 
 ## Limitations
 
 - Scanned PDFs need OCR before this app can extract useful text.
-- Tables, equations, and multi-column layouts may need domain-specific parsing for best results.
-- The local vector index is intended for personal or demo use, not multi-user production workloads.
-- Generated answers are only as reliable as the retrieved chunks and the model prompt.
-- Very large papers or many simultaneous uploads can require more memory and processing time.
+- Complex tables, equations, and multi-column layouts may need specialized parsing.
+- Retrieval quality depends on chunk size, overlap, and the wording of the question.
+- Generated answers should be checked against the retrieved chunks.
+- The local vector index is intended for portfolio/demo use, not multi-user production workloads.
 
 ## Future Improvements
 
 - Add OCR support for scanned papers.
 - Add table extraction and structured table citations.
-- Support persistent project workspaces per user.
-- Add citation highlighting inside a PDF preview.
-- Add reranking for better retrieval quality.
+- Add reranking to improve retrieval quality.
+- Add PDF preview with citation highlighting.
 - Add export to Markdown or PDF for research notes.
 - Add evaluation tests for retrieval precision and citation faithfulness.
 
@@ -138,10 +129,6 @@ This avoids OpenAI quota issues for embeddings and keeps the generated-answer pr
 ├── .env.example
 ├── .streamlit/
 │   └── config.toml
-├── pages/
-│   └── About.py
-└── docs/
-    └── screenshots/
-        ├── 01-upload-and-index.svg
-        └── 02-answer-with-citations.svg
+└── pages/
+    └── About.py
 ```
