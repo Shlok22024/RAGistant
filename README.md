@@ -64,7 +64,9 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Add your OpenAI API key to `.env` if you want generated answers:
+Add API keys to `.env` if you want generated answers. Keys are loaded from the local environment and are not editable or displayed in the Streamlit UI.
+
+Add your OpenAI API key only if you want OpenAI generation or OpenAI embeddings:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here

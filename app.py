@@ -54,20 +54,55 @@ def inject_styles() -> None:
     st.markdown(
         """
         <style>
+        .stApp {
+            background:
+                linear-gradient(180deg, #f6f8f2 0%, #f8fafc 42%, #eef4f1 100%);
+            color: #10201b;
+        }
+        [data-testid="stSidebar"] {
+            background: #edf3ef;
+            border-right: 1px solid #d6e0d8;
+        }
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 {
+            color: #16352b;
+        }
+        [data-testid="stMetric"] {
+            border: 1px solid #dbe4dc;
+            border-radius: 8px;
+            background: #ffffff;
+            padding: 0.75rem 0.85rem;
+        }
+        .stButton > button {
+            border-radius: 8px;
+            border: 1px solid #245d51;
+            background: #245d51;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        .stButton > button:hover {
+            border: 1px solid #1d4d43;
+            background: #1d4d43;
+            color: #ffffff;
+        }
         .block-container {
             padding-top: 2.4rem;
             padding-bottom: 4rem;
             max-width: 1180px;
         }
         .rg-hero {
-            border: 1px solid #e2e8f0;
-            background: #ffffff;
+            border: 1px solid #c9d8cf;
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(237, 245, 240, 0.94)),
+                repeating-linear-gradient(90deg, transparent 0, transparent 31px, rgba(36, 93, 81, 0.06) 32px);
             border-radius: 10px;
-            padding: 1.35rem 1.45rem;
+            padding: 1.55rem 1.65rem;
             margin-bottom: 1.2rem;
+            box-shadow: 0 10px 26px rgba(15, 46, 36, 0.06);
         }
         .rg-eyebrow {
-            color: #2563eb;
+            color: #245d51;
             font-size: 0.82rem;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -75,42 +110,50 @@ def inject_styles() -> None:
             margin-bottom: 0.35rem;
         }
         .rg-hero h1 {
-            color: #0f172a;
+            color: #10201b;
             font-size: 2.35rem;
             line-height: 1.1;
             margin: 0 0 0.45rem 0;
         }
         .rg-hero p {
-            color: #475569;
+            color: #4c6259;
             font-size: 1rem;
             margin: 0;
             max-width: 780px;
         }
         .rg-step {
-            border: 1px solid #e2e8f0;
+            border: 1px solid #d6e0d8;
             border-radius: 8px;
             background: #ffffff;
             padding: 1rem;
             min-height: 116px;
+            box-shadow: 0 8px 18px rgba(15, 46, 36, 0.04);
         }
         .rg-step strong {
-            color: #0f172a;
+            color: #16352b;
             display: block;
             margin-bottom: 0.35rem;
         }
         .rg-step span {
-            color: #64748b;
+            color: #5f7169;
             font-size: 0.94rem;
         }
+        .rg-panel {
+            border: 1px solid #d6e0d8;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.86);
+            padding: 1rem;
+        }
         .rg-source {
-            border: 1px solid #e5e7eb;
+            border: 1px solid #d6e0d8;
             border-radius: 8px;
             padding: 0.75rem 0.85rem;
             margin-bottom: 0.55rem;
             background: #ffffff;
+            border-left: 4px solid #9bb7a5;
         }
         .rg-muted {
-            color: #64748b;
+            color: #66766f;
             font-size: 0.92rem;
         }
         </style>
@@ -175,7 +218,7 @@ def get_embedding_model(
 ):
     if embedding_provider == "OpenAI":
         if not openai_api_key:
-            raise ValueError("Add an OpenAI API key or switch embeddings to Local Hugging Face.")
+            raise ValueError("Add OPENAI_API_KEY to your .env file or switch embeddings to Local Hugging Face.")
         return OpenAIEmbedding(model=openai_embed_model, api_key=openai_api_key)
 
     return HuggingFaceEmbedding(model_name=local_embed_model)
@@ -283,7 +326,7 @@ def retrieval_only_answer(rows: list[dict[str, str]]) -> str:
 
 def generate_with_gemini(prompt: str, api_key: str, model: str) -> str:
     if not api_key:
-        raise ValueError("Add a Gemini API key in the sidebar or choose Retrieval only.")
+        raise ValueError("Add GEMINI_API_KEY to your .env file or choose Retrieval only.")
 
     from google import genai
 
@@ -294,7 +337,7 @@ def generate_with_gemini(prompt: str, api_key: str, model: str) -> str:
 
 def generate_with_groq(prompt: str, api_key: str, model: str) -> str:
     if not api_key:
-        raise ValueError("Add a Groq API key in the sidebar or choose Retrieval only.")
+        raise ValueError("Add GROQ_API_KEY to your .env file or choose Retrieval only.")
 
     from groq import Groq
 
@@ -312,7 +355,7 @@ def generate_with_groq(prompt: str, api_key: str, model: str) -> str:
 
 def generate_with_openai(prompt: str, api_key: str, model: str) -> str:
     if not api_key:
-        raise ValueError("Add an OpenAI API key in the sidebar or choose another answer provider.")
+        raise ValueError("Add OPENAI_API_KEY to your .env file or choose another answer provider.")
 
     from openai import OpenAI
 
@@ -342,6 +385,7 @@ def generate_answer(query: str, rows: list[dict[str, str]], settings: RagSetting
 
 def render_sidebar() -> RagSettings:
     st.sidebar.header("Settings")
+    st.sidebar.caption("API keys are loaded from your local .env file and are never displayed here.")
 
     embedding_provider = st.sidebar.radio(
         "Embedding provider",
@@ -354,23 +398,9 @@ def render_sidebar() -> RagSettings:
         help="Gemini and Groq are good low/no-cost alternatives to OpenAI for this project.",
     )
 
-    st.sidebar.divider()
-    st.sidebar.subheader("API keys")
-    gemini_api_key = st.sidebar.text_input(
-        "Gemini API key",
-        value=os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", "")),
-        type="password",
-    )
-    groq_api_key = st.sidebar.text_input(
-        "Groq API key",
-        value=os.getenv("GROQ_API_KEY", ""),
-        type="password",
-    )
-    openai_api_key = st.sidebar.text_input(
-        "OpenAI API key",
-        value=os.getenv("OPENAI_API_KEY", ""),
-        type="password",
-    )
+    gemini_api_key = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
+    groq_api_key = os.getenv("GROQ_API_KEY", "")
+    openai_api_key = os.getenv("OPENAI_API_KEY", "")
 
     st.sidebar.divider()
     st.sidebar.subheader("Models")
@@ -459,11 +489,13 @@ def main() -> None:
     left_col, right_col = st.columns([1.1, 0.9], gap="large")
 
     with left_col:
+        st.markdown('<div class="rg-panel">', unsafe_allow_html=True)
         uploaded_files = st.file_uploader(
             "Upload research PDFs",
             type=["pdf"],
             accept_multiple_files=True,
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if not uploaded_files:
         with right_col:
